@@ -4,6 +4,7 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -28,7 +29,6 @@ public class Main {
 		tags.put("TAG2", "tag2");
 		tags.put("BOLD ITALIC", "bold italic");
 		
-
 		XWPFDocument doc = new XWPFDocument(
 			new FileInputStream(file)
 		);
@@ -52,24 +52,39 @@ public class Main {
 		
 	private static void processParagraph(XWPFParagraph p) {
 		String txt = "";
-		XWPFRun start = null;
+		ArrayList<XWPFRun> runs = new ArrayList<XWPFRun>();
 		for (XWPFRun r : p.getRuns()) {
-			String text = r.text(); 
-			if (text != null) {
-				if (text.contains("<<"))
-					start = r;
-				if (start != null) {
-					txt += text; 
-					r.setText("");
-				}
-				if (text.contains(">>")) {
-					txt = replaceTags(start, txt);
-					start.setText(txt);
-					txt = "";
-					start = null;
-				}
+			String text = r.getText(0); 
+			if (text == null)
+				continue;
+			if (runs.size() == 0 && ! text.contains("<<"))
+				continue;
+
+			txt += text;
+			runs.add(r);
+			r.setText("");
+
+			if (text.contains(">>")) {
+				updateRuns(runs, txt);
+				txt = "";
+				runs.clear();
 			}
 		}
+	}
+
+	private static void updateRuns(ArrayList<XWPFRun> runs, String txt) {
+		txt = replaceTags(runs.get(0), txt);
+		
+		int runTxtLength = txt.length() / runs.size() + 1;
+		String[] runTxts = txt.split("(?<=\\G.{" + runTxtLength + "})");
+		
+//		System.out.println(txt);
+//		System.out.println(txt.length() + " " + runs.size() + " " + runTxtLength);
+//		System.out.println(Arrays.toString(runTxts));
+		
+		for (int i=0; i<runs.size(); i++) {
+			runs.get(i).setText(runTxts[i], 0);
+		}		
 	}
 
 	private static String replaceTags(XWPFRun r, String text) {
